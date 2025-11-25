@@ -56,10 +56,38 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Test Docker image
+    - name: Test Docker image (smoke test)
       run: |
-        echo "Testing Docker image..."
-        docker run --rm ${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+        set -e
+        IMAGE="${{ env.REGISTRY }}/${{ env.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
+        echo "Testing Docker image: $IMAGE"
+
+        # Start container in the background
+        docker run -d --rm --name flask-test -p 4049:4049 "$IMAGE"
+
+        echo "Waiting for Flask app to start..."
+        # Simple wait loop with health check
+        for i in {1..10}; do
+          if curl -fsS http://localhost:4049/greeting > /dev/null; then
+            echo "✓ Health check OK"
+            break
+          fi
+          echo "… still starting (attempt $i)"
+          sleep 2
+        done
+
+        # If curl still fails after all attempts, exit with error
+        if ! curl -fsS http://localhost:4049/greeting > /dev/null; then
+          echo "✗ App did not become healthy in time"
+          docker logs flask-test || true
+          docker stop flask-test || true
+          exit 1
+        fi
+
+        echo "Stopping test container…"
+        docker stop flask-test
+
+
 
     - name: Push to DockerHub (Staging)
       uses: docker/build-push-action@v5
