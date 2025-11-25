@@ -1,11 +1,17 @@
+# Tu peux utiliser une version existante de Python, par ex. 3.12
 FROM python:3.14
 
-RUN mkdir /opt/hello_world/
+# Dossier de travail dans le conteneur
 WORKDIR /opt/hello_world/
 
+# Copier et installer les dépendances
 COPY requirements.txt .
-COPY hello_world.py /opt/
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier ton script dans le dossier de travail
+COPY hello_world.py .
 
 EXPOSE 80
 
-CMD [ "./hello_world" ]
+# Lancer le script Python
+CMD ["python", "hello_world.py"]
